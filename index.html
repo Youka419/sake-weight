@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>出荷・コンテナ計算</title>
+
+<style>
+body{
+  font-family:system-ui,-apple-system,BlinkMacSystemFont;
+  background:#f2f4f7;
+  max-width:800px;
+  margin:auto;
+  padding:16px;
+}
+h2{text-align:center}
+.card{
+  background:#fff;
+  border-radius:14px;
+  padding:16px;
+  margin-bottom:14px;
+}
+.row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:14px;
+}
+.label{font-weight:600}
+.counter{
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.counter button{
+  width:40px;
+  height:40px;
+  font-size:22px;
+  border:none;
+  border-radius:10px;
+  background:#e0e0e0;
+}
+.counter input{
+  width:70px;
+  text-align:center;
+  font-size:18px;
+}
+.result{
+  background:#1a237e;
+  color:#fff;
+  text-align:center;
+  border-radius:14px;
+}
+.big{font-size:1.8em;font-weight:bold}
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:10px;
+}
+th,td{
+  border-bottom:1px solid #ddd;
+  padding:6px;
+  text-align:right;
+}
+th{text-align:left}
+small{color:#666}
+</style>
+</head>
+
+<body>
+
+<h2>🚚 出荷・コンテナ計算</h2>
+
+<div class="card">
+  <small>本数入力</small>
+
+  <div class="row"><div class="label">1800ml</div><div class="counter">
+    <button onclick="change(0,-1)">−</button>
+    <input type="number" id="m0" value="0" min="0" oninput="directInput(0)">
+    <button onclick="change(0,1)">＋</button>
+  </div></div>
+
+  <div class="row"><div class="label">750ml</div><div class="counter">
+    <button onclick="change(1,-1)">−</button>
+    <input type="number" id="m1" value="0" min="0" oninput="directInput(1)">
+    <button onclick="change(1,1)">＋</button>
+  </div></div>
+
+  <div class="row"><div class="label">720ml</div><div class="counter">
+    <button onclick="change(2,-1)">−</button>
+    <input type="number" id="m2" value="0" min="0" oninput="directInput(2)">
+    <button onclick="change(2,1)">＋</button>
+  </div></div>
+
+  <div class="row"><div class="label">500ml</div><div class="counter">
+    <button onclick="change(3,-1)">−</button>
+    <input type="number" id="m3" value="0" min="0" oninput="directInput(3)">
+    <button onclick="change(3,1)">＋</button>
+  </div></div>
+
+  <div class="row"><div class="label">300ml</div><div class="counter">
+    <button onclick="change(4,-1)">−</button>
+    <input type="number" id="m4" value="0" min="0" oninput="directInput(4)">
+    <button onclick="change(4,1)">＋</button>
+  </div></div>
+
+  <div class="row"><div class="label">180ml</div><div class="counter">
+    <button onclick="change(5,-1)">−</button>
+    <input type="number" id="m5" value="0" min="0" oninput="directInput(5)">
+    <button onclick="change(5,1)">＋</button>
+  </div></div>
+</div>
+
+<div class="card result">
+  <div>総出荷重量</div>
+  <div class="big"><span id="totalWeight">0.00</span> kg</div>
+</div>
+
+<div class="card">
+  <h3>📦 必要なコンテナ数</h3>
+  <table>
+    <thead>
+      <tr><th>容量</th><th>数量</th></tr>
+    </thead>
+    <tbody id="resultTable"></tbody>
+  </table>
+</div>
+
+<script>
+const sizes = [1800,750,720,500,300,180];
+const L = [6,6,12,12,24,30];
+const caseKg = [1.7,1.2,0.67,0.5,0.5,0.5];
+const bottleKg = [0.8,0.5,0.45,0.4,0.3,0.25];
+
+let M=[], N=[], O=[], P=[], Q=[], R=[];
+
+function change(i,d){
+  const el=document.getElementById('m'+i);
+  el.value=Math.max(0,(parseInt(el.value)||0)+d);
+  calculate();
+}
+function directInput(i){
+  const el=document.getElementById('m'+i);
+  if(el.value<0) el.value=0;
+  calculate();
+}
+
+function calculate(){
+  let totalWeight=0;
+  let table='';
+
+  for(let i=0;i<sizes.length;i++){
+    M[i]=parseInt(document.getElementById('m'+i).value)||0;
+  }
+
+  for(let i=0;i<sizes.length;i++){
+    N[i]=M[i]===0?"":Math.ceil(M[i]/L[i]);
+
+    if(i===0){
+      O[i]=M[i]===0?"":(N[i]*L[i])-M[i];
+    }else{
+      O[i]=M[i]===0?O[i-1]:O[i-1]+(N[i]*L[i])-M[i];
+    }
+
+    if(i===0){
+      P[i]=N[i];
+    }else{
+      P[i]=M[i]===0?"":Math.floor(M[i]/L[i]);
+    }
+
+    Q[i]=i===0?"":(M[i]===0?"":M[i]-(P[i]*L[i])-O[i-1]);
+    R[i]=i===0?N[i]:(Q[i]<=0?0:Math.ceil(Q[i]/L[i]));
+
+    // === 重量計算（★最小修正 5行）===
+    const unitKg=(sizes[i]*0.001)+bottleKg[i];
+    const realCases =
+      i === 0
+        ? (R[i] || 0)
+        : ((P[i] || 0) + (R[i] || 0));
+
+    totalWeight += unitKg*M[i];
+    totalWeight += realCases * caseKg[i];
+
+    table+=`<tr><td>${sizes[i]}ml</td><td>${realCases}</td></tr>`;
+  }
+
+  document.getElementById('totalWeight').innerText=totalWeight.toFixed(2);
+  document.getElementById('resultTable').innerHTML=table;
+}
+
+calculate();
+</script>
+
+</body>
+</html>
