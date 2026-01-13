@@ -109,11 +109,8 @@
     var bottleSizes = [1800, 750, 720, 500, 300, 180]; 
     var itemsPerCase = [6, 6, 12, 12, 24, 30]; 
     
-    // Updated weights based on the CSV "単品(kg)" values
-    // [1800ml, 750ml, 720ml, 500ml, 300ml, 180ml]
+    // Weights
     var productWeights = [2.8, 1.3, 1.14, 0.94, 0.55, 0.34];
-
-    // Case weights (restored from original file)
     var caseWeights = [1.7, 1.2, 0.67, 0.5, 0.5, 0.5];
 
     // Global arrays for calculation logic
@@ -211,20 +208,29 @@
             }
 
             // remainderBottles[i] (was Q): Remainder
+            // Definition: M6 - (P6*L6) - O5
             remainderBottles[i] = i === 0 ? "" : (inputCounts[i] === 0 ? "" : inputCounts[i] - (fullCases[i] * itemsPerCase[i]) - (emptySlots[i - 1] || 0));
 
-            // extraCasesNeeded[i] (was R): Additional cases needed
-            extraCasesNeeded[i] = i === 0 ? idealCases[i] : (remainderBottles[i] <= 0 ? 0 : Math.ceil(remainderBottles[i] / itemsPerCase[i]));
+            // === Real Cases Logic Updated ===
+            // Excel Logic: =IF(M=0, 0, IF(OR(Q>0, Q=""), N, P))
+            // Q="" corresponds to i===0 in this script.
+            
+            var realCases = 0;
+            if (inputCounts[i] !== 0) {
+                if (i === 0 || remainderBottles[i] > 0) {
+                    // If first row OR remainder doesn't fit in previous empty slots
+                    realCases = idealCases[i]; // Use N (Ideal cases alone)
+                } else {
+                    // Fits in previous empty slots
+                    realCases = fullCases[i];  // Use P (Full cases only)
+                }
+            }
 
             // === Weight Calculation ===
-            // Use exact product weight from CSV
+            // Use exact product weight
             var unitKg = productWeights[i];
             
-            var realCases = i === 0 
-                ? (extraCasesNeeded[i] || 0) 
-                : ((fullCases[i] || 0) + (extraCasesNeeded[i] || 0));
-
-            // Add product weight (Rounded to avoid float errors)
+            // Add product weight
             totalWeight += unitKg * inputCounts[i];
             
             // Add case weight
@@ -241,9 +247,6 @@
         // Update UI
         var weightEl = document.getElementById('totalWeight');
         if(weightEl) {
-            // Fix floating point errors (e.g. 29.639999999999997 -> 29.64)
-            // Multiply by 100, round, then divide by 100 is a common technique, 
-            // but toFixed(2) is sufficient for display.
             weightEl.innerText = totalWeight.toFixed(2);
         }
         
